@@ -1,56 +1,38 @@
-library(e1071)
+####### model for Salary_hike##
+salary_hike <- read.csv(file.choose())
+View(salary_hike)#######X=yearof experince y= Salary
+summary(salary_hike)
+
+attach(salary_hike)
+plot(YearsExperience,Salary)
+
+#Correlation cofficient
+cor(Salary,YearsExperience)####### 0.9782416  which means good correlation cofficient
+
+
+
+#####linear regression model####
+reg <- lm(Salary~YearsExperience)
+summary(reg)#### R-squared:  0.957 which our reg model is best because r -squared value is greater than 0.8 andstrong positve relation
+confint(reg,level = 0.95)
+pred <- predict(reg,interval = 'predict')
+pred <- data.frame(salary_hike,pred)
+###sum of error
+sum(reg$residuals)###-7.844392e-12=0
+
+###RMSE
+sqrt(mean(reg$residuals^2))######[1] 5592.044
+###As in datset salary range is (0-122391) so our Rmse value is small for this range which means our linear regression is best model.
+
+
+# visualization
 library(ggplot2)
-salary_train <- read.csv(file.choose())
-salary_test <- read.csv(file.choose())
-###view for salaray_train datasets
-View(salary_train)
-str(salary_train)
-salary_train$educationno <- as.factor(salary_train$educationno)
-class(salary_train)
+ggplot(data = salary_hike, aes(x =YearsExperience, y = Salary)) + 
+  geom_point(color='blue') +
+  geom_line(color='red',data = salary_hike, aes(x=YearsExperience, y=reg$fitted.values))
 
-####view for salary_test data
-View(salary_test)
-str(salary_test)
-salary_test$educationno <- as.factor(salary_test$educationno)
-class(salary_test)
-#Visualization 
-# Plot and ggplot 
-ggplot(data=salary_train,aes(x=salary_train$Salary, y = salary_train$age, fill = salary_train$Salary)) +
-  geom_boxplot() +
-  ggtitle("Box Plot")
-plot(salary_train$workclass,salary_train$Salary)
-plot(salary_train$education,salary_train$Salary)
-plot(salary_train$educationno,salary_train$Salary)
-plot(salary_train$maritalstatus,salary_train$Salary)
-plot(salary_train$occupation,salary_train$Salary)
-plot(salary_train$relationship,salary_train$Salary)
-plot(salary_train$race,salary_train$Salary)
-plot(salary_train$sex,salary_train$Salary)
-plot(salary_train$native,salary_train$Salary)
-ggplot(data=salary_train,aes(x=salary_train$Salary, y = salary_train$capitalgain, fill = salary_train$Salary)) +
-  geom_boxplot() +
-  ggtitle("Box Plot")
-ggplot(data=salary_train,aes(x=salary_train$Salary, y = salary_train$capitalloss, fill = salary_train$Salary)) +
-  geom_boxplot() +
-  ggtitle("Box Plot")
-ggplot(data=salary_train,aes(x=salary_train$Salary, y = salary_train$hoursperweek, fill = salary_train$Salary)) +
-  geom_boxplot() +
-  ggtitle("Box Plot")
-#Density Plot 
+error <- salary_hike$Salary-pred$fit
+final_model <- data.frame(pred,error)
+pairs(salary_hike)
 
-ggplot(data=salary_train,aes(x = salary_train$age, fill = salary_train$Salary)) +
-  geom_density(alpha = 0.9, color = 'Violet')+
-  ggtitle("Age - Density Plot")
-ggplot(data=salary_train,aes(x =salary_train$workclass, fill = salary_train$Salary)) +
-  geom_density(alpha = 0.9, color = 'Violet')+ggtitle("Workclass Density Plot")
-ggplot(data=salary_train,aes(x = salary_train$education, fill = salary_train$Salary)) +
-  geom_density(alpha = 0.9, color = 'Violet')+ggtitle("education Density Plot")
-ggplot(data=salary_train,aes(x = salary_train$educationno, fill = salary_train$Salary)) +
-  geom_density(alpha = 0.9, color = 'Violet')+ggtitle("educationno Density Plot")
-
-# Naive Bayes Model 
-Model <- naiveBayes(salary_train$Salary ~ ., data = salary_train)
-Model
-Model_pred <- predict(Model,salary_test)
-mean(Model_pred==salary_test$Salary)###0.8187251
-confusionMatrix(Model_pred,salary_test$Salary)
+######################################################
