@@ -1,127 +1,100 @@
-####50 start up###
-startup <- read.csv(file.choose())
-dim(startup)#### to show thw number of observation and number of variable
-str(startup)
-summary(startup)
-attach(startup)
-### EDA##############
-##R.D.Spend####
-var(R.D.Spend)
-sd(R.D.Spend)
-hist(R.D.Spend)
-library(moments)
-skewness(R.D.Spend) ### 0.1590405 is very much normal
-boxplot(R.D.Spend)### no outlier is present 
-qqnorm(R.D.Spend)
-qqline(R.D.Spend) #### data is normal
+install.packages("neuralnet")
+library(neuralnet)  # regression
+install.packages("nnet")
+library(nnet) # classification 
+install.packages("NeuralNetTools")
+library(NeuralNetTools)
+library(plyr)
+# Read the data
+Startups <- read.csv(file.choose())
+View(Startups)
+class(Startups)
+Startups$State <- as.numeric(revalue(Startups$State,
+                                     c("New York"="0", "California"="1",
+                                       "Florida"="2")))
+str(Startups)
+Startups <- as.data.frame(Startups)
+attach(Startups)
 
-#####Administration#####
-mean(Administration)##### average of administration is 121344.6
-median(Administration)#### 122699.8   ; median>mean which mean negative or left skewed
- var(Administration)####784997271
- sd(Administration) # the distance from each point of data from there mean is 28017.8
- skewness(Administration)###-0.4742301 left skewed
-hist(Administration)
-boxplot(Administration) ## no outlier present
-qqnorm(Administration)
-qqline(Administration)  #some what data is not  normal   
+# Exploratory data Analysis :
+
+plot(R.D.Spend, Profit)
+plot(Administration, Profit)
+plot(Marketing.Spend, Profit)
+plot(State, Profit)
+windows()
+# Find the correlation between Output (Profit) & inputs (R.D Spend, Administration, Marketing, State) - SCATTER DIAGRAM
+pairs(Startups)
+# Correlation coefficient - Strength & Direction of correlation
+cor(Startups)
+summary(Startups) # Confirms on the different scale and demands normalizing the data.
+# Apply Normalization technique to the whole dataset :
+
+normalize<-function(x){
+  return ( (x-min(x))/(max(x)-min(x)))
+}
+Startups_norm<-as.data.frame(lapply(Startups,FUN=normalize))
+summary(Startups_norm$Profit) # Normalized form of profit
+
+summary(Startups$profit) # Orginal profit value
+
+# Data Partition 
+set.seed(123)
+ind <- sample(2, nrow(Startups_norm), replace = TRUE, prob = c(0.7,0.3))
+Startups_train <- Startups_norm[ind==1,]
+startups_test  <- Startups_norm[ind==2,]
 
 
-#####MARKETING SPEND#########
+# Creating a neural network model on training data
 
-mean(Marketing.Spend)
-median(Marketing.Spend)
-var(Marketing.Spend)
-sd(Marketing.Spend)
-skewness(Marketing.Spend)
-hist(Marketing.Spend,main = 'Marketing.Spend')
-boxplot(Marketing.Spend)####no outlier
-qqnorm(Marketing.Spend)
-qqline(Marketing.Spend)#####almost normal
 
-# Encoding categorical data
-startup$State = factor(startup$State,
-                       levels = c('New York', 'California', 'Florida'),
-                       labels = c(1, 2, 3))
+startups_model <- neuralnet(Profit~R.D.Spend+Administration
+                            +Marketing.Spend+State,data = Startups_train)
+str(startups_model)
 
-# Splitting the dataset into the Training set and Test set
-##install.packages('caTools')
-library(caTools)
-split = sample.split(startup$Profit, SplitRatio = 0.8)
-training_set = subset(startup, split == TRUE)
-test_set = subset(startup, split == FALSE)
+plot(startups_model, rep = "best")
 
-#####pair######
-pairs(training_set) #### this is collinearity problem 
+summary(startups_model)
 
-######correlation cofficient##
-cor(training_set)
-###install.packages('corrgram')
-library(corrgram)
-corrgram(training_set)###### states show the collinerity with other variable
+par(mar = numeric(4), family = 'serif')
+plotnet(startups_model, alpha = 0.6)
 
-###build the model####
-model <- lm(Profit~.,data = training_set)
-summary(model)
-#Multiple R-squared:  0.9575,	Adjusted R-squared:  0.9512 
-### Administration,Marketing and states  are insignificant
+# Evaluating model performance
 
-#sum of error
-sum(model$residuals)###-6.139089e-12=0
+set.seed(12323)
+model_results <- compute(startups_model,startups_test[1:4])
+predicted_profit <- model_results$net.result
 
-######RMSE######
-sqrt(mean(model$residuals**2))#### 8530.982 
+# Predicted profit Vs Actual profit of test data.
+cor(predicted_profit,startups_test$Profit)
 
-####vif value####
-library(car)
-vif(model)
-avPlots(model)
+# since the prediction is in Normalized form, we need to de-normalize it 
+# to get the actual prediction on profit
+str_max <- max(Startups$Profit)
+str_min <- min(Startups$Profit)
 
-####from the above  analysis we found  states is  culprit because it show more collinearity b/w variable
-####its indicate to  delete state column
-model2 <- lm(Profit~Administration+R.D.Spend+Marketing.Spend,data = training_set)
-summary(model2)###Administration and Marketing  are insignificant
-##R-squared= 0.9573  Adjusted R-squared:  0.9538  
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
 
-#sum of error
-sum(model2$residuals)#3.439027e-12=0
+ActualProfit_pred <- unnormalize(predicted_profit,str_min,str_max)
+head(ActualProfit_pred)
 
-######RMSE######
-sqrt(mean(model2$residuals**2))###8855.344
+# Improve the model performance :
+set.seed(12345)
+Startups_model2 <- neuralnet(Profit~R.D.Spend+Administration
+                             +Marketing.Spend+State,data = Startups_train,
+                             hidden = 2)
+plot(Startups_model2 ,rep = "best")
 
-vif(model2)
-avPlots(model2) 
+summary(Startups_model2)
 
-### as we show Administration and Marketing are insignificant and RMSE value is increase so we found influence point
-#### check influence 
-influence.measures(model2)
-influenceIndexPlot(model2)
-influencePlot(model2)##50,49,46,47 are some influence point so delete this point
+model_results2<-compute(Startups_model2,startups_test[1:4])
+predicted_Profit2<-model_results2$net.result
+cor(predicted_Profit2,startups_test$Profit)
 
-##build the model by removing 50,49,46,4,1obersavation
-model3 <- lm(Profit~Administration+R.D.Spend+Marketing.Spend,data = training_set[-c(50,49,46),])
-summary(model3)#Multiple R-squared:0.9573,	Adjusted R-squared:  0.9538 
+plot(predicted_Profit2,startups_test$Profit)
 
-######RMSE######
-sqrt(mean(model3$residuals**2))##### 8543.66
-vif(model3)
-avPlots(model3) 
-##### removing administration 
-model4 <- lm(Profit~R.D.Spend+Marketing.Spend,data = training_set)
-summary(model4)#R-squared:  0.9573,	Adjusted R-squared:  0.9549 
-training_RMSE <- sqrt(mean(model4$residuals**2))##### 8551.564
-training_RMSE
-vif(model4)
-avPlots(model4) 
-#As our R-squared and adjusted vale is increses than we can say model4 is our final model
+par(mar = numeric(4), family = 'serif')
+plotnet(Startups_model2, alpha = 0.6)
 
-###now lets test our model
-predtest <- predict(model4,startup)
-predtest
-
-testing_error <- startup$Profit-predtest
-testing_error
- test_rmse <- sqrt(mean(testing_error**2))##8994.476
-## As our training Rmse and test rmse is nearly same sowe can that our build model is good.
- 
- 
