@@ -1,38 +1,73 @@
-####### model for Salary_hike##
-salary_hike <- read.csv(file.choose())
-View(salary_hike)#######X=yearof experince y= Salary
-summary(salary_hike)
-
-attach(salary_hike)
-plot(YearsExperience,Salary)
-
-#Correlation cofficient
-cor(Salary,YearsExperience)####### 0.9782416  which means good correlation cofficient
-
-
-
-#####linear regression model####
-reg <- lm(Salary~YearsExperience)
-summary(reg)#### R-squared:  0.957 which our reg model is best because r -squared value is greater than 0.8 andstrong positve relation
-confint(reg,level = 0.95)
-pred <- predict(reg,interval = 'predict')
-pred <- data.frame(salary_hike,pred)
-###sum of error
-sum(reg$residuals)###-7.844392e-12=0
-
-###RMSE
-sqrt(mean(reg$residuals^2))######[1] 5592.044
-###As in datset salary range is (0-122391) so our Rmse value is small for this range which means our linear regression is best model.
-
-
-# visualization
+install.packages("kernlab")
+library(kernlab)
+library(caret)
+library(lattice)
 library(ggplot2)
-ggplot(data = salary_hike, aes(x =YearsExperience, y = Salary)) + 
-  geom_point(color='blue') +
-  geom_line(color='red',data = salary_hike, aes(x=YearsExperience, y=reg$fitted.values))
+library(plyr)
+install.packages("psych")
+library(psych)
+library(e1071)
+train_sal <- read.csv(file.choose())
+str(train_sal)
+View(train_sal)
+train_sal$educationno <- as.factor(train_sal$educationno)
+class(train_sal)
+# Data(Test)
+test_sal <- read.csv(file.choose())
+str(test_sal)
+View(test_sal)
+test_sal$educationno <- as.factor(test_sal$educationno)
+class(test_sal)
+#Visualization 
+# Plot and ggplot 
+ggplot(data=train_sal,aes(x=train_sal$Salary, y = train_sal$age, fill = train_sal$Salary)) +
+  geom_boxplot() +
+  ggtitle("Box Plot")
+plot(train_sal$workclass,train_sal$Salary)
+plot(train_sal$education,train_sal$Salary)
+plot(train_sal$educationno,train_sal$Salary)
+plot(train_sal$maritalstatus,train_sal$Salary)
+plot(train_sal$occupation,train_sal$Salary)
+plot(train_sal$relationship,train_sal$Salary)
+plot(train_sal$race,train_sal$Salary)
+plot(train_sal$sex,train_sal$Salary)
+ggplot(data=train_sal,aes(x=train_sal$Salary, y = train_sal$capitalgain, fill = train_sal$Salary)) +
+  geom_boxplot() +
+  ggtitle("Box Plot")
+ggplot(data=train_sal,aes(x=train_sal$Salary, y = train_sal$capitalloss, fill = train_sal$Salary)) +
+  geom_boxplot() +
+  ggtitle("Box Plot")
+ggplot(data=train_sal,aes(x=train_sal$Salary, y = train_sal$hoursperweek, fill = train_sal$Salary)) +
+  geom_boxplot() +
+  ggtitle("Box Plot")
+plot(train_sal$native,train_sal$Salary)
+# Building model 
 
-error <- salary_hike$Salary-pred$fit
-final_model <- data.frame(pred,error)
-pairs(salary_hike)
 
-######################################################
+model1<-ksvm(train_sal$Salary~., 
+             data= train_sal, kernel = "vanilladot")
+model1
+Salary_prediction <- predict(model1, test_sal)
+
+table(Salary_prediction,test_sal$Salary)
+agreement <- Salary_prediction == test_sal$Salary
+table(agreement)
+
+prop.table(table(agreement))
+
+# Different types of kernels 
+# "rbfdot", "polydot", "tanhdot", "vanilladot", "laplacedot", 
+# "besseldot", "anovadot", "splinedot", "matrix"
+
+# kernel = rfdot 
+model_rfdot<-ksvm(train_sal$Salary~., 
+                  data= train_sal,kernel = "rbfdot")
+pred_rfdot<-predict(model_rfdot,newdata=test_sal)
+mean(pred_rfdot==test_sal$Salary) # 85.19
+
+# kernel = vanilladot
+model_vanilla<-ksvm(train_sal$Salary~., 
+                    data= train_sal,kernel = "vanilladot")
+
+pred_vanilla<-predict(model_vanilla,newdata=test_sal)
+mean(pred_vanilla==test_sal$Salary)
